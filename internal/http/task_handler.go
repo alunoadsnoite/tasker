@@ -6,18 +6,18 @@ import (
 	nethttp "net/http"
 	"time"
 
-	"tasker/internal/task"
+	task "tasker/internal/task"
 )
 
 type TaskHandler struct {
-	Repo *task.Repository
+	Repo *task.TaskRepository
 }
 
 type createTaskRequest struct {
 	Name string `json:"name"`
 }
 
-func NewTaskHandler(repo *task.Repository) *TaskHandler {
+func NewTaskHandler(repo *task.TaskRepository) *TaskHandler {
 	return &TaskHandler{Repo: repo}
 }
 
@@ -41,11 +41,11 @@ func (h *TaskHandler) HandleTasks(w nethttp.ResponseWriter, r *nethttp.Request) 
 		t := task.Task{
 			ID:        fmt.Sprint(time.Now().UnixNano()),
 			Name:      req.Name,
-			Status:    task.StatusPending,
+			Status:    "pending",
 			CreatedAt: time.Now(),
 		}
 
-		h.Repo.Create(t)
+		h.Repo.Add(t)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(nethttp.StatusCreated)

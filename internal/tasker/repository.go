@@ -37,7 +37,7 @@ func (r *TaskRepository) List() []Task {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	return r.tasks
+	return append([]Task{}, r.tasks...)
 }
 
 // retorna a próxima task pendente e marca como processing
@@ -48,7 +48,8 @@ func (r *TaskRepository) FetchPendingAndMarkProcessing() *Task {
 	for i := range r.tasks {
 		if r.tasks[i].Status == "pending" {
 			r.tasks[i].Status = "processing"
-			return &r.tasks[i]
+			task := r.tasks[i]
+			return &task
 		}
 	}
 	return nil

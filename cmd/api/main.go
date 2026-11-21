@@ -6,8 +6,8 @@ import (
 	"log"
 	"net/http"
 	"sync"
-	"time"
 	"tasker/internal/tasker"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -37,7 +37,7 @@ func (r *TaskRepository) Create(name string) tasker.Task {
 func (r *TaskRepository) List() []tasker.Task {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.tasks
+	return append([]tasker.Task{}, r.tasks...)
 }
 
 func (r *TaskRepository) FetchPendingAndMarkProcessing() *tasker.Task {
@@ -46,7 +46,8 @@ func (r *TaskRepository) FetchPendingAndMarkProcessing() *tasker.Task {
 	for i := range r.tasks {
 		if r.tasks[i].Status == "pending" {
 			r.tasks[i].Status = "processing"
-			return &r.tasks[i]
+			task := r.tasks[i]
+			return &task
 		}
 	}
 	return nil
@@ -107,16 +108,21 @@ func main() {
 	StartWorkers(repo, *workers, statusChan)
 
 	workerStatuses := make(map[int]WorkerStatus)
+	var statusesMu sync.RWMutex
 	go func() {
 		for s := range statusChan {
+			statusesMu.Lock()
 			workerStatuses[s.ID] = s
+			statusesMu.Unlock()
 		}
 	}()
 
 	http.HandleFunc("/tasks", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
-			var req struct{ Name string `json:"name"` }
+			var req struct {
+				Name string `json:"name"`
+			}
 			json.NewDecoder(r.Body).Decode(&req)
 			task := repo.Create(req.Name)
 			w.WriteHeader(http.StatusCreated)
@@ -143,9 +149,11 @@ func main() {
 
 	http.HandleFunc("/workers", func(w http.ResponseWriter, r *http.Request) {
 		statuses := []WorkerStatus{}
+		statusesMu.RLock()
 		for _, s := range workerStatuses {
 			statuses = append(statuses, s)
 		}
+		statusesMu.RUnlock()
 		json.NewEncoder(w).Encode(statuses)
 	})
 
